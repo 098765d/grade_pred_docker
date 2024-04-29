@@ -1,0 +1,11 @@
+streamlit
+pandas
+numpy
+scikit-learn
+skl2onnx
+onnxruntime
+seaborn
+matplotlib
+pyyaml
+openpyxl
+dualPredictor
