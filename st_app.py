@@ -6,6 +6,7 @@ import json
 import base64
 import time
 import datetime
+import io
 
 
 from dualPredictor.df_preprocess import data_preprocessing
@@ -14,7 +15,7 @@ from dualPredictor.model_plot import plot_scatter,plot_cm,plot_feature_coefficie
 
 
 def upload_data():
-    st.subheader('Upload your datasets')
+    st.subheader('1. Upload your datasets')
     df_train=None
     df_test=None
     # Create file uploaders for training and test datasets
@@ -36,9 +37,16 @@ def upload_data():
             df_test = pd.read_excel(test_file)
     return df_train,df_test
 
+def df_info(df):
+    buf=io.StringIO()
+    df.info(buf=buf)
+    s=buf.getvalue()
+    return s
+
+
 def user_input(df_train):
     with st.popover("User Input"):
-        st.subheader('Specify the target column and ID col')
+        st.subheader('2. Specify the target column and ID col')
         cols=df_train.columns.tolist()
         cols.append(None)
         target_col=st.selectbox(label='target column',options=cols)
@@ -74,7 +82,7 @@ def df_test_pred(model,X_test,df_test):
     df['y_pred']=y_pred
     df['y_label_pred']=y_label_pred
     csv_data = df.to_csv(index=False).encode('utf-8')
-    st.subheader('Download Predictions Result')
+    st.subheader('4. Download Predictions Result')
     create_download_button(csv_data, 'predictions.csv', 'text/csv')
     return df
 
@@ -116,58 +124,74 @@ Model Package PyPI Link: https://pypi.org/project/dualPredictor/
   - y_pred_label = 0 (normal): if y_pred >= optimal_cut_off
 
 ''')
+    # Sidebar content
+    st.sidebar.title("About the Web App")
+    st.sidebar.markdown('created by D')
+    st.sidebar.markdown("# User Guide:")
+    st.sidebar.markdown("1. Upload your training and test datasets.")
+    st.sidebar.markdown("2. Specify the User Input for Model Building")
+    st.sidebar.markdown("3. Click 'Train the Model' to start the model training.")
+    st.sidebar.markdown("4. Explore the model performance plots and download prediction results.")
 
     start_time=time.time()
     # Call the function and store the returned DataFrames
     df_train,df_test=upload_data()
     if df_train is not None:
-        st.text('train data uploaded')
+        st.subheader('Training Dataset')
         st.write(df_train)
+        s_df_train=df_info(df_train)
+        st.text(s_df_train)
     if df_test is not None:
-        st.text('test data uploaded')
+        st.subheader('Testing Dataset')
         st.write(df_test)
+        s_df_test=df_info(df_test)
+        st.text(s_df_test)
+        st.subheader('2. User Input for Model Building')
         target_col,id_col,drop_cols,default_cut_off=user_input(df_train)
-       
-        scaler=None
-        imputer=None
-        X_train, y_train,scaler,imputer =data_preprocessing(df=df_train, target_col=target_col, id_col=id_col, drop_cols=drop_cols, scaler=scaler, imputer=imputer)
-        scaler=scaler
-        imputer=imputer
-        X_test, y_test,scaler,imputer = data_preprocessing(df=df_test, target_col=target_col, id_col=id_col, drop_cols=drop_cols, scaler=scaler, imputer=imputer)
-    
-        model_type='lasso'
-        metric='youden_index'
-        model = DualModel(model_type, metric, default_cut_off)
-        model.fit(X_train, y_train)
-        optimal_cut_off=model.optimal_cut_off
-        st.subheader('The model has been built:')
-        st.text(f'optimal cut off = {optimal_cut_off}')
-        # Feature importance plot
-        global_fc_fig=plot_feature_coefficients(coef=model.coef_, feature_names=model.feature_names_in_)
-        colx, coly= st.columns(2)
-        with colx:
-            st.pyplot(global_fc_fig)
-        with coly:
-            expander=st.expander('See explanation')
-            
-            expander.markdown('''
-            # Model Feature Coefficients
-            The model coefficient plot illustrates the influence of each feature on the model's predictions. Here's how to read it:     
-            - **Length**: Longer bars indicate a stronger effect, with positive bars for positive impact and negative bars for negative impact.            
-            - **Direction**: Positive bars suggest a feature that increases the predicted outcome, while negative bars suggest a feature that decreases it.''')
 
-
-        # for train set
-        with st.expander('Model Performance on Training Dataset'):
-            plot_result(X_train,y_train,model,default_cut_off)
-        with st.expander('Model Performance on Testing Dataset'):
-            plot_result(X_test,y_test,model,default_cut_off)
+        st.subheader("3. Start Training the Model")
+        run_model=st.button(label="Train the Model")
+        if run_model:
+            scaler=None
+            imputer=None
+            X_train, y_train,scaler,imputer =data_preprocessing(df=df_train, target_col=target_col, id_col=id_col, drop_cols=drop_cols, scaler=scaler, imputer=imputer)
+            scaler=scaler
+            imputer=imputer
+            X_test, y_test,scaler,imputer = data_preprocessing(df=df_test, target_col=target_col, id_col=id_col, drop_cols=drop_cols, scaler=scaler, imputer=imputer)
         
-        end_time=time.time()
-        runtime=round(end_time-start_time,2)
-        st.text(f"Total Runtime: {runtime} seconds")
+            model_type='lasso'
+            metric='youden_index'
+            model = DualModel(model_type, metric, default_cut_off)
+            model.fit(X_train, y_train)
+            optimal_cut_off=model.optimal_cut_off
+            st.subheader('The model has been built:')
+            st.text(f'optimal cut off = {optimal_cut_off}')
+            # Feature importance plot
+            global_fc_fig=plot_feature_coefficients(coef=model.coef_, feature_names=model.feature_names_in_)
+            colx, coly= st.columns(2)
+            with colx:
+                st.pyplot(global_fc_fig)
+            with coly:
+                expander=st.expander('See explanation')
+                
+                expander.markdown('''
+                # Model Feature Coefficients
+                The model coefficient plot illustrates the influence of each feature on the model's predictions. Here's how to read it:     
+                - **Length**: Longer bars indicate a stronger effect, with positive bars for positive impact and negative bars for negative impact.            
+                - **Direction**: Positive bars suggest a feature that increases the predicted outcome, while negative bars suggest a feature that decreases it.''')
 
-        df_pred=df_test_pred(model,X_test,df_test)
+
+            # for train set
+            with st.expander('Model Performance on Training Dataset'):
+                plot_result(X_train,y_train,model,default_cut_off)
+            with st.expander('Model Performance on Testing Dataset'):
+                plot_result(X_test,y_test,model,default_cut_off)
+            
+            end_time=time.time()
+            runtime=round(end_time-start_time,2)
+            st.text(f"Total Runtime: {runtime} seconds")
+
+            df_pred=df_test_pred(model,X_test,df_test)
 
 
 
